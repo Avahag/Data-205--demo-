@@ -1,0 +1,8 @@
+---
+title: "crash report (data clean)"
+author: "Ava Haghighi"
+format: html
+editor: visual
+---
+
+## 

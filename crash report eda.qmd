@@ -1,0 +1,339 @@
+---
+title: "crash report EDA"
+author: "Ava Haghighi"
+format: html
+editor: visual
+---
+
+```{r}
+setwd("C:/Users/ava/Downloads/Data 205/final project")
+```
+
+```{r}
+Data <- read.csv("Crash_Reporting_-_Drivers_Data_20241022.csv")
+```
+
+
+```{r libraries}
+
+# Load libraries
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(summarytools)
+
+```
+
+
+```{r Data structure }
+
+# View the first few rows of the dataset
+head(Data)
+
+# View structure and column types
+str(Data)
+
+
+```
+```{r}
+
+
+Data <- Data %>%
+  
+  mutate(across(where(is.character), 
+                ~ na_if(na_if(na_if(na_if(na_if(., ""), "N/A"), "NULL"), "Unknown"), "UNKNOWN"))) %>%
+
+
+  mutate(across(where(is.character), 
+                ~ na_if(., ""))) %>%
+
+  mutate(across(where(is.numeric), 
+                ~ na_if(., NA))) %>%
+  mutate(across(where(is.integer), 
+                ~ na_if(., NA)))
+
+
+
+
+```
+
+
+
+```{r missing values }
+# Check for missing values
+colSums(is.na(Data))
+```
+
+
+```{r NA table dataframe }
+# Calculate the percentage of missing data for each column
+missing_percentage <- colSums(is.na(Data)) / nrow(Data) * 100
+
+# Count missing values per column
+missing_count <- colSums(is.na(Data))
+
+# Count non-missing values
+non_missing_count <- nrow(Data) - missing_count
+
+
+
+# creating a data frame for table 
+missing_table <- data.frame(
+  Column = names(Data),
+  Missing_Percentage = round(missing_percentage, 2)
+)
+
+print(missing_table)
+
+```
+```{r}
+non_zero_missing_table <- missing_table %>%
+  filter(Missing_Percentage > 10)
+print(non_zero_missing_table)
+
+```
+
+
+```{r}
+ggplot(non_zero_missing_table, aes(x = Column, y = Missing_Percentage)) +
+  geom_bar(stat = "identity", fill = "red") +  # Bar chart with a custom color
+  labs(
+    title = "Missing Data Percentage per Column",
+    x = "Columns",
+    y = "Percentage of Missing Data (%)"
+  ) +
+  theme_minimal() +  # A minimalistic theme for the plot
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for readability
+```
+```{r}
+missing_percentage <- sum(is.na(Data)) / (nrow(Data) * ncol(Data)) * 100
+missing_percentage
+```
+
+```{r}
+library(psych)
+```
+```{r}
+describe(Data)
+```
+
+
+
+```{r}
+summary(Data)
+```
+
+```{r}
+numeric_data <- Data %>%
+  select(where(is.numeric))
+
+describe(numeric_data)
+```
+
+```{r}
+ggplot(numeric_data, aes(x= Speed.Limit )) +
+    geom_boxplot(alpha= 0.15 , fill= "blue") +
+    theme(legend.position="none") +
+  theme_minimal()+
+    scale_fill_brewer(palette="Set1") + 
+  labs(title = "Boxplot of speed limit", y = "Speed limit")
+```
+```{r}
+clean_year_model <- na.omit(numeric_data$Vehicle.Year)
+```
+
+
+
+```{r}
+ggplot(Data, aes(x = Vehicle.Year)) +
+  geom_histogram(
+    aes(alpha = ..count..),  # Adjust alpha based on count (transparency proportional to frequency)
+    binwidth = 2,
+    fill = "red", 
+    color = "black"
+  ) +
+  scale_alpha_continuous(range = c(0.15, 1)) +  # Transparency: 0.2 for low counts and 1 for high counts
+  labs(title = "Distribution of vehicle years in the accidents ", x = "Vehicle Year", y = "Frequency") +
+  scale_x_continuous(limits = c(1990, 2024)) +
+  theme_minimal()
+
+```
+```{r}
+head(Data)
+```
+
+```{r}
+# categorical vars 
+char_columns <- Data %>%
+    select(ACRS.Report.Type , Route.Type , Cross.Street.Name , Municipality , Collision.Type , Vehicle.Damage.Extent , Injury.Severity)
+
+```
+
+
+
+
+
+```{r}
+library(pheatmap)
+
+```
+
+
+
+```{r}
+summary(char_columns)
+```
+
+```{r}
+describe(char_columns)
+```
+
+```{r}
+# List of variables in Group 1 and Group 2
+group_1 <- c("Route.Type", "Road.Name" , "Municipality")
+group_2 <- c("Collision.Type", "Vehicle.Damage.Extent", "Injury.Severity")
+
+# Initialize a list to store the results
+chi_square_results <- list()
+
+
+```
+
+```{r}
+
+for (var1 in group_1) {
+  for (var2 in group_2) {
+    # Create contingency table for the pair of variables, removing NAs
+    table_data <- table(Data[[var1]], Data[[var2]], useNA = "no")  # "useNA = 'no'" excludes NAs
+    
+    # Perform Chi-Square test only if the table has more than 1 row and column
+    if (nrow(table_data) > 1 & ncol(table_data) > 1) {
+      chi_test <- chisq.test(table_data)
+      # Store the test results
+      chi_square_results[[paste(var1, "vs", var2)]] <- chi_test
+    } else {
+      chi_square_results[[paste(var1, "vs", var2)]] <- "Not enough data for Chi-Square test"
+    }
+  }
+}
+
+# View the Chi-Square test results for each pair
+chi_square_results
+```
+
+##A p-value < 0.05 means we reject the null hypothesis, which in this case suggests that Route.Type and Vehicle.Damage.Extent are significantly associated — that is, they are not independent. There is likely some relationship or pattern between these two variables.
+
+```{r}
+contingency_table <- table(char_columns$Route.Type, char_columns$Vehicle.Damage.Extent)
+
+# Convert the contingency table into a data frame
+heatmap_data <- as.data.frame(contingency_table)
+```
+
+```{r}
+library(ggplot2)
+
+```
+
+```{r}
+ggplot(heatmap_data, aes(x = Var1, y = Var2, fill = Freq)) +
+  geom_tile( color = "black") + # Creates the heatmap
+  scale_fill_gradient(low = "lightblue", high = "blue") + # Color gradient
+  labs(title = "Heatmap: Route Type vs Vehicle Damage Extent",
+       x = "Route Type",
+       y = "Vehicle Damage Extent",
+       fill = "Frequency") +
+  theme_minimal() + # Minimal theme
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) # Angle x-axis labels for better readability
+
+```
+```{r}
+contingency_table <- table(char_columns$Route.Type, char_columns$Injury.Severity)
+
+# Convert the contingency table into a data frame
+heatmap_data2 <- as.data.frame(contingency_table)
+```
+
+```{r}
+ggplot(heatmap_data2, aes(x = Var1, y = Var2, fill = Freq)) +
+  geom_tile( color = "black") + # Creates the heatmap
+  scale_fill_gradient(low = scales::alpha("#94b3f5", 0.5), high = scales::alpha("#2767f1", 0.5)) + 
+  labs(title = "Heatmap: Route Type vs Injury Severity ",
+       x = "Route Type",
+       y = "Vehicle Damage Extent",
+       fill = "Frequency") +
+  theme_minimal() + # Minimal theme
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) # Angle x-axis labels for better readability
+```
+```{r}
+describe(Data$Vehicle.Year)
+```
+```{r}
+Q1 <- quantile(Data$Vehicle.Year, 0.25, na.rm = TRUE)
+Q3 <- quantile(Data$Vehicle.Year, 0.75, na.rm = TRUE)
+IQR <- Q3 - Q1
+
+# Define the outlier thresholds
+lower_limit <- Q1 - 1.5 * IQR
+upper_limit <- Q3 + 1.5 * IQR
+
+# Filter out the outliers
+Data_clean1 <- Data[Data$Vehicle.Year >= lower_limit & Data$Vehicle.Year <= upper_limit, ]
+
+summary(Data_clean1$Vehicle.Year)
+```
+```{r}
+     
+chi_square_summary <- data.frame(
+  Variable_Pair = character(0),
+  X_squared = numeric(0),
+  df = numeric(0),
+  p_value = character(0),
+  stringsAsFactors = FALSE
+)
+
+# Loop through each combination of variables in Group 1 and Group 2
+for (var1 in group_1) {
+  for (var2 in group_2) {
+    # Create contingency table for the pair of variables, removing NAs
+    table_data <- table(Data[[var1]], Data[[var2]], useNA = "no")  # "useNA = 'no'" excludes NAs
+    
+    # Perform Chi-Square test only if the table has more than 1 row and column
+    if (nrow(table_data) > 1 & ncol(table_data) > 1) {
+      chi_test <- chisq.test(table_data)
+
+
+
+
+
+
+
+
+result <- data.frame(
+        Variable_Pair = paste(var1, "vs", var2),
+        X_squared = chi_test$statistic,
+        df = chi_test$parameter,
+        p_value = as.character(chi_test$p.value)
+      )
+      
+      # Append the result to the summary table
+      chi_square_summary <- rbind(chi_square_summary, result)
+    } else {
+      # In case there's not enough data for Chi-Square test
+      result <- data.frame(
+        Variable_Pair = paste(var1, "vs", var2),
+        X_squared = NA,
+        df = NA,
+        p_value = "Not enough data"
+      )
+      
+      # Append this result to the summary table
+      chi_square_summary <- rbind(chi_square_summary, result)
+    }
+  }
+}
+
+# View the final Chi-Square test summary table
+print(chi_square_summary)
+```
+

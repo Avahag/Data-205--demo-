@@ -1,0 +1,103 @@
+---
+title: "Accident Rate"
+format: html
+editor: visual
+---
+
+```{r Import data }
+setwd("C:/Users/ava/Downloads/Data 205/final project")
+
+Data <-read.csv("Annual_Average_Daily_Traffic.csv")
+Data2 <-read.csv("CrashReporting2.csv")
+```
+
+```{r}
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(zoo)
+library(hrbrthemes)
+```
+```{r date varible converted }
+# converting date variable
+Data2$CrashDate <- mdy(Data2$CrashDate)
+```
+
+
+```{r count crashes }
+# Group the crash report Data by Year 
+# Count crashes by year
+crash_counts_by_year <- Data2%>%
+  group_by(year(CrashDate)) %>%
+  summarise(Crash.Count = n())  # 'n()' counts the number of rows for each year 
+
+
+```
+
+
+```{r groupnig the crash data}
+# Sort the data by year
+crash_counts_by_year <- crash_counts_by_year %>%
+  arrange(`year(CrashDate)`)
+
+```
+
+```{r rolling average for crash data }
+# Calculate 3-year rolling average using the 'rollmean' function from 'zoo'
+crash_counts_by_year$Rolling_Avg <- rollmean(crash_counts_by_year$Crash.Count, 
+                                              k = 4,    # Window size (3 years)
+                                              fill = NA, # Fill NA for edges where the window is incomplete
+                                              align = "center") # Center the window
+crash_counts_by_year$Rolling_Avg[1:3] <- NA
+
+```
+
+
+```{r}
+crash_counts_by_year
+```
+
+
+
+
+```{r}
+ggplot(crash_counts_by_year, aes(x = `year(CrashDate)`)) +
+  # Plot Crash Count line and points (blue solid line)
+  geom_line(aes(y = Crash.Count, color = "Crash Count"), size = 1.2, linetype = "dashed") +  # Crash count line
+  geom_point(aes(y = Crash.Count, color = "Crash Count"), size = 3) +  # Points for Crash count
+  
+  # Plot Rolling Average line and points
+  geom_line(aes(y = Rolling_Avg, color = "Trend Line"), size = 1.2) +  # Rolling average line
+  geom_point(aes(y = Rolling_Avg, color = "Trend Line"), size = 3) +  # Points for Rolling average
+  
+  # Add labels and customize the plot
+  labs(title = "Montgomery County Crash Trends(2015-2023)", 
+       x = "Year", 
+       y = "Count", 
+       color = "Legend") +  # Legend title
+  
+  scale_x_continuous(limits = c(2017, 2023), breaks = seq(2017, 2023, by = 1)) +  # Custom X-axis ticks
+  
+  scale_y_continuous(limits = c(5000, 13000)) +
+  
+  scale_color_manual(values = c("Crash Count" = "#027bbf", "Trend Line" = "#ff0000")) +
+
+  theme_minimal() +
+  
+  # Customize plot setting and size 
+theme(
+  plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),  
+  axis.title.x = element_text(margin = margin(t = 10)), 
+  axis.title.y = element_text(margin = margin(r = 10))  
+)
+
+```
+
+
+```{r}
+
+```
+
+
+
+
